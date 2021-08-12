@@ -244,6 +244,14 @@ def get_config(problem_name, path=None, mode=None, num_hidden_layer=None, net_na
         "net_path": path
     }}
     net_assignments = None
+  elif problem_name == "pzf_opt":
+    problem = problems.pzf_opt()
+    net_config = {"cw": {
+        "net": "CoordinateWiseDeepLSTM",
+        "net_options": {"layers": (20, 20)},
+        "net_path": path
+    }}
+    net_assignments = None
   
   else:
     raise ValueError("{} is not a valid problem".format(problem_name))
