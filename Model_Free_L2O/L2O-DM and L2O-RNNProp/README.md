@@ -16,6 +16,8 @@
 
 ```shell
 python train_dm.py --save_path=${OUTPUT_DIR} --problem=mnist --if_cl=False --if_mt=False --num_epochs=10000 --num_steps=100
+
+python3.6 train_dm.py --save_path=./dump --problem=pzf_opt --if_cl=False --if_mt=False --num_epochs=5000 --num_steps=100
 ```
 
 #### Train L2O-DM (enhanced)
@@ -46,6 +48,8 @@ More details are referred to [README](https://github.com/VITA-Group/L2O-Training
 #### Evaluate with L2O-DM
 ```shell
 python evaluate_dm.py --path=${MODEL_FILE} --num_steps=10000 --problem=mnist_relu --output_path=${OUTPUT_DIR} --seed=2
+
+python3.6 evaluate_dm.py --path=./dump/cw.l2l-900 --num_steps=10000 --problem=pzf_opt --output_path=./dump/eval --seed=2
 ```
 
 **Detailed Instructions**

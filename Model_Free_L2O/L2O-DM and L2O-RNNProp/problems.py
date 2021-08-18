@@ -1006,11 +1006,12 @@ def square_cos(batch_size=128, num_dims=10, stddev=0.01, dtype=tf.float32):
     return build
 
 
+# TODO: K = 1
 def pzf_opt(N=5, K=2, dtype=tf.float32):
     def build():
         # Trainable variable.
         # TODO: Add tf.constant_initializer for p and q according to their distributions
-        # TODO: Check tf.dtypes.complex for simpler
+        # TODO: Check tf.dtypes.complex for faster calculation
 
         # Generate p
         p = tf.get_variable("p",
@@ -1054,7 +1055,8 @@ def pzf_opt(N=5, K=2, dtype=tf.float32):
             fi_2 = (tf.linalg.matmul(tf.transpose(p), D[i]) + tf.linalg.matmul(tf.transpose(q), C[i])) * (tf.linalg.matmul(tf.transpose(D[i]), p) + tf.linalg.matmul(tf.transpose(C[i]), q))
             fi = fi_1 + fi_2 - 1
             result += fi ** 2
-            print("!!!!{}".format(result.shape))
+            # print("!!!!{}".format(result.shape))
 
-        return result
+        # TODO: Normalize the sum, divide by number of users
+        return tf.squeeze(result)
     return build

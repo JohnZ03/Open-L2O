@@ -31,6 +31,8 @@ from data_generator import data_loader
 import meta_dm_train as meta
 import util
 
+import data_record
+
 flags = tf.flags
 FLAGS = flags.FLAGS
 
@@ -59,6 +61,9 @@ flags.DEFINE_float("mt_ratio", 0.3, "")
 flags.DEFINE_string("mt_ratios", "0.0 0.1 0.3 0.3 0.3 0.3 0.3 0.3", "")
 flags.DEFINE_integer("k", 1, "")
 
+# File which stores losses
+log = data_record.create_file()
+
 
 def main(_):
     # Configuration.
@@ -81,11 +86,11 @@ def main(_):
     # Optimizer setup.
     optimizer = meta.MetaOptimizer(FLAGS.num_mt, **net_config)
     minimize, scale, var_x, constants, subsets, \
-        loss_mt, steps_mt, update_mt, reset_mt, mt_labels, mt_inputs = optimizer.meta_minimize(
-            problem, FLAGS.unroll_length,
-            learning_rate=FLAGS.learning_rate,
-            net_assignments=net_assignments,
-            second_derivatives=FLAGS.second_derivatives)
+    loss_mt, steps_mt, update_mt, reset_mt, mt_labels, mt_inputs = optimizer.meta_minimize(
+        problem, FLAGS.unroll_length,
+        learning_rate=FLAGS.learning_rate,
+        net_assignments=net_assignments,
+        second_derivatives=FLAGS.second_derivatives)
     step, update, reset, cost_op, _ = minimize
 
     # Data generator for multi-task learning.
@@ -106,7 +111,7 @@ def main(_):
     with ms.MonitoredSession() as sess:
         def assign_func(val_x):
             sess.run(assign_ops, feed_dict={p: v for p, v in zip(p_val_x, val_x)})
-        
+
         # tf1.14
         for rst in [reset] + reset_mt:
             sess.run(rst)
@@ -152,8 +157,9 @@ def main(_):
                                             var_x=var_x)
             else:
                 data_e = data_mt.get_data(task_i, sess, num_unrolls_cur, assign_func, FLAGS.rd_scale_bound,
-                                        if_scale=FLAGS.if_scale, mt_k=FLAGS.k)
-                time, cost = util.run_epoch(sess, loss_mt[task_i], [update_mt[task_i], steps_mt[task_i]], reset_mt[task_i],
+                                          if_scale=FLAGS.if_scale, mt_k=FLAGS.k)
+                time, cost = util.run_epoch(sess, loss_mt[task_i], [update_mt[task_i], steps_mt[task_i]],
+                                            reset_mt[task_i],
                                             num_unrolls_cur,
                                             scale=scale,
                                             rd_scale=FLAGS.if_scale,
@@ -164,10 +170,10 @@ def main(_):
                                             data=data_e,
                                             label_pl=mt_labels[task_i],
                                             input_pl=mt_inputs[task_i])
-            print ("training_loss={}".format(cost))
+            print("training_loss={}".format(cost))
 
             # Evaluation.
-            if (e+1) % FLAGS.evaluation_period == 0:
+            if (e + 1) % FLAGS.evaluation_period == 0:
                 if FLAGS.if_cl:
                     num_unrolls_eval_cur = num_unrolls_eval[curriculum_idx]
                 else:
@@ -184,15 +190,16 @@ def main(_):
                     num_steps_cur = num_steps[curriculum_idx]
                 else:
                     num_steps_cur = FLAGS.num_steps
-                print ("epoch={}, num_steps={}, eval_loss={}".format(
+                print("epoch={}, num_steps={}, eval_loss={}".format(
                     e, num_steps_cur, eval_cost / FLAGS.evaluation_epochs), flush=True)
+                data_record.add_log(log, "{},{},{}\n".format(e, num_steps_cur, eval_cost / FLAGS.evaluation_epochs))
 
                 if not FLAGS.if_cl:
                     if eval_cost < best_evaluation:
                         best_evaluation = eval_cost
                         optimizer.save(sess, FLAGS.save_path, e + 1)
                         optimizer.save(sess, FLAGS.save_path, 0)
-                        print ("Saving optimizer of epoch {}...".format(e + 1))
+                        print("Saving optimizer of epoch {}...".format(e + 1))
                     continue
 
                 # Curriculum learning.
@@ -222,10 +229,12 @@ def main(_):
                     print("epoch={}, num_steps={}, eval loss={}".format(
                         e, num_steps[curriculum_idx], eval_cost / FLAGS.evaluation_epochs), flush=True)
                 elif num_eval >= FLAGS.min_num_eval and not improved:
-                    print ("no improve during curriculum {} --> stop".format(curriculum_idx))
+                    print("no improve during curriculum {} --> stop".format(curriculum_idx))
                     break
 
-        print ("total time = {}s...".format(timer() - start_time))
+        print("total time = {}s...".format(timer() - start_time))
+        data_record.add_log(log, "total time = {}s...".format(timer() - start_time))
+        log.close()
 
 
 if __name__ == "__main__":
